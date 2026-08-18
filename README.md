@@ -164,10 +164,12 @@ The characteristics are calculated using information available up to each observ
 
 For each month \(t\), characteristics are standardized across the available stocks:
 
+$$
 \[
 z_{i,t,k} =
 \frac{x_{i,t,k}-\mu_{t,k}}{\sigma_{t,k}}
 \]
+$$
 
 This puts stocks on a comparable cross-sectional scale while keeping the normalization within each time period.
 
@@ -175,11 +177,13 @@ This puts stocks on a comparable cross-sectional scale while keeping the normali
 
 The model predicts the following month's return:
 
+$$
 \[
 R_{i,t\rightarrow t+1}
 =
 \frac{P_{i,t+1}-P_{i,t}}{P_{i,t}}
 \]
+$$
 
 The target is therefore shifted forward relative to the characteristics used to make the prediction.
 
@@ -259,19 +263,23 @@ The model predictions are converted into a cross-sectional long-short strategy e
 
 Transaction cost:
 
+$$
 \[
 Cost_t =
 0.0010
 \times
 (Turnover_{long,t}+Turnover_{short,t})
 \]
+$$
 
 Net portfolio return:
 
+$$
 \[
 NetReturn_t =
 GrossReturn_t-Cost_t
 \]
+$$
 
 This means the evaluation is based on investable portfolio returns rather than model predictions alone.
 
@@ -285,17 +293,21 @@ The final evaluation combines predictive metrics, portfolio performance, statist
 
 Monthly Spearman rank correlation between predicted and realized cross-sectional returns:
 
+$$
 \[
 IC_t =
 SpearmanRankCorr(\hat R_{i,t},R_{i,t})
 \]
+$$
 
 and:
 
+$$
 \[
 ICIR =
 \frac{\mu_{IC}}{\sigma_{IC}}
 \]
+$$
 
 ### Portfolio Metrics
 
