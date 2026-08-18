@@ -1,0 +1,12 @@
+{
+  "source_name": "yfinance",
+  "download_date": "2026-08-17",
+  "coverage_period": "2016-09-01 to 2026-08-01",
+  "frequency": "monthly",
+  "adjustment_method": "adj_close accounts for splits and dividends (auto_adjust=False with explicit Adj Close column)",
+  "disclaimer": "Data retrieved via yfinance open interface. Free/unofficial API with no uptime guarantee. Current universe suffers from survivorship bias (only active tickers included). Market cap and shares outstanding are current point-in-time snapshot metrics, not historical point-in-time values.",
+  "total_tickers_requested": 60,
+  "tickers_successful_count": 60,
+  "tickers_failed_count": 0,
+  "failed_tickers": []
+}
