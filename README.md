@@ -178,10 +178,19 @@ This puts stocks on a comparable cross-sectional scale while keeping the normali
 The model predicts the following month's return:
 
 $$
+
 R_{i,t\rightarrow t+1}
+
 =
 \frac{P_{i,t+1}-P_{i,t}}{P_{i,t}}
 $$
+
+```math
+R_{i,t\rightarrow t+1}
+=
+\frac{P_{i,t+1}-P_{i,t}}{P_{i,t}}
+```
+
 
 The target is therefore shifted forward relative to the characteristics used to make the prediction.
 
