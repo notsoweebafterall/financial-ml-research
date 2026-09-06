@@ -25,7 +25,7 @@ The goal of V1 was not to reproduce every detail of the original GKX dataset. In
 
 3. **The out-of-sample evidence is statistically inconclusive.** With **35 out-of-sample test months**, none of the tested portfolio return series is statistically significant at the 5% level under either the naive one-sample t-test or the Newey-West HAC-adjusted test. Ridge had the highest HAC t-statistic (**0.9764**, p = **0.3289**).
 
-4. **NeuralNet performed particularly strongly late in the test period.** It achieved a **+45.00% cumulative net return** from 2026-03 through 2026-07. This period included strong performance in several semiconductor holdings, including `INTC`, `AMD`, and `AVGO`.
+4. **NeuralNet performed particularly strongly late in the test period.** It achieved a **+45.00% cumulative net return** from 2026-03 through 2026-07. This period included strong performance in several semiconductor holdings, including `INTC`, `AMD`, and `AVGO`. Stock-level inspection confirmed all four models converged on the same holdings during this period, consistent with the momentum characteristics correctly identifying a genuine sector-wide rally rather than model-specific noise. However, with only 6 stocks per leg (10% of a 60-stock universe), a small number of extreme individual movers (e.g. `INTC` +114% in a single month) can disproportionately drive portfolio-level returns. This magnitude effect reflects the small universe size in V1 rather than unusually strong predictive skill specific to this period, and would likely be substantially diluted in a larger, production-scale universe.
 
 These findings are descriptive of this V1 experiment and should not be interpreted as evidence of a statistically significant or persistent trading strategy.
 
@@ -395,6 +395,7 @@ That distinction is important in financial machine learning: good backtest perfo
 V1 deliberately makes several simplifications.
 
 - The initial universe contains 60 US stocks rather than the full US equity market.
+- With only 6 stocks per leg (a consequence of the 60-stock universe), individual extreme stock moves can disproportionately influence monthly portfolio returns, as observed during the March-April 2026 semiconductor rally. A larger universe would reduce this concentration effect.
 - The characteristic set is price/volume based rather than the full set of characteristics used in the original GKX study.
 - The evaluation window contains only 35 out-of-sample months.
 - Free public market data can introduce coverage and historical-data limitations.
