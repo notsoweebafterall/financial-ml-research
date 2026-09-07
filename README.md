@@ -6,9 +6,11 @@ The project takes the core idea of combining financial characteristics with mach
 
 The goal of V1 was not to reproduce every detail of the original GKX dataset. Instead, it was to build a clean, reproducible financial-ML research pipeline using freely accessible market data and a practical set of price- and volume-derived characteristics.
 
+**The project was subsequently extended (Phase 8) to Indian equities (NSE)**, applying the identical, parameterized pipeline code to a second market. A full comparative write-up of both markets is available as a paper: [`US_India_ML_Asset_Pricing_Paper.pdf`](./US_India_ML_Asset_Pricing_Paper.pdf).
+
 ---
 
-## Executive Summary
+## Executive Summary (US Market)
 
 | Model | Sharpe Ratio | IC (Spearman) | ICIR | Naive t-stat (p-val) | HAC t-stat (p-val) | Max Drawdown | Annualized Return | SPY Correlation |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -51,41 +53,49 @@ financial_ml_research/
 ├── data/
 │   ├── raw/
 │   │   ├── universe.csv                    # 60 large-cap US tickers and sector mappings
-│   │   ├── prices.parquet                  # Historical OHLCV price dataset
-│   │   ├── market_cap_snapshot.csv         # Market-cap snapshot retained as an ingestion artifact
+│   │   ├── prices.parquet                  # Historical US OHLCV price dataset
+│   │   ├── market_cap_snapshot.csv         # US market-cap snapshot (ingestion artifact)
 │   │   ├── spy_benchmark.parquet           # SPY monthly benchmark prices
-│   │   └── source_metadata.json            # Data source, retrieval metadata & parameters
+│   │   ├── source_metadata.json            # US data source & retrieval metadata
+│   │   ├── india_universe.csv              # 60 large-cap NSE tickers and sector mappings
+│   │   ├── india_prices.parquet            # Historical India OHLCV price dataset
+│   │   ├── india_market_cap_snapshot.csv   # India market-cap snapshot (ingestion artifact)
+│   │   ├── india_nifty_benchmark.parquet   # Nifty 50 (^NSEI) monthly benchmark prices
+│   │   └── india_source_metadata.json      # India data source & retrieval metadata
 │   └── processed/
-│       ├── characteristics_panel.parquet   # 27 characteristics + forward 1m target
-│       └── oos_predictions.parquet         # Combined OOS predictions across all 4 models
+│       ├── characteristics_panel.parquet   # US: 27 characteristics + forward 1m target
+│       ├── oos_predictions.parquet         # US: combined OOS predictions, all 4 models
+│       ├── india_characteristics_panel.parquet  # India: same 27 characteristics
+│       └── india_oos_predictions.parquet   # India: combined OOS predictions, all 4 models
 ├── src/
 │   ├── data/
-│   │   └── ingestion.py                    # Yahoo Finance / yfinance market & benchmark data fetcher
+│   │   ├── ingestion.py                    # US market/benchmark data fetcher (yfinance)
+│   │   └── india_ingestion.py              # India (NSE) market/benchmark data fetcher
 │   ├── features/
-│   │   ├── builder.py                      # 27 price/volume characteristics & monthly Z-score builder
+│   │   ├── builder.py                      # 27 characteristics; --market us|india
 │   │   └── verify_phase2.py                 # Feature distribution & leakage verification tests
 │   ├── validation/
-│   │   └── walkforward.py                  # Expanding-window 35-fold splitter (min train = 84m)
+│   │   └── walkforward.py                  # Expanding-window splitter (shared, market-agnostic)
 │   ├── models/
-│   │   ├── ridge_model.py                  # Ridge L2-regularized linear model
-│   │   ├── random_forest_model.py          # Random Forest non-linear tree ensemble
-│   │   ├── xgboost_model.py                # XGBoost gradient boosted decision trees
+│   │   ├── ridge_model.py / random_forest_model.py / xgboost_model.py
 │   │   ├── nn_trainer.py                   # Deep MLP (scikit-learn MLPRegressor)
-│   │   ├── run_nn.py                       # NeuralNet training runner across 35 folds
-│   │   └── runner.py                       # Master Phase 4 training runner for Ridge, RF, XGB
+│   │   ├── run_nn.py                       # NeuralNet runner; --market us|india
+│   │   └── runner.py                       # Ridge/RF/XGBoost runner; --market us|india
 │   ├── portfolio/
-│   │   ├── backtest.py                     # Decile long-short backtest engine with transaction costs
-│   │   └── run_backtest.py                 # Master Phase 5 backtest runner
+│   │   ├── backtest.py                     # Decile long-short backtest engine (shared)
+│   │   └── run_backtest.py                 # Backtest runner; --market us|india
 │   └── evaluation/
 │       ├── metrics.py                      # PerformanceEvaluator (Sharpe, IC, HAC t-test, regimes)
-│       └── runner.py                       # Master Phase 6 evaluation & verification runner
+│       └── runner.py                       # Evaluation runner; --market us|india
 ├── results/
-│   ├── phase4_selected_hyperparameters.csv # Selected hyperparameters per fold
-│   ├── phase5_backtest_results.csv         # Monthly portfolio net returns & holdings
-│   ├── phase5_equity_curves.png            # Overlaid cumulative equity curves
-│   ├── phase6_performance_summary.csv      # Master benchmark table (4 models)
-│   ├── phase6_regime_breakdown.csv         # Performance by Bull/Bear and Volatility regimes
-│   └── phase6_market_correlation.csv       # SPY Pearson linear return correlation
+│   ├── phase4_selected_hyperparameters.csv / india_phase4_selected_hyperparameters.csv
+│   ├── phase5_backtest_results.csv / india_phase5_backtest_results.csv
+│   ├── phase5_equity_curves.png
+│   ├── phase6_performance_summary.csv / india_phase6_performance_summary.csv
+│   ├── phase6_regime_breakdown.csv / india_phase6_regime_breakdown.csv
+│   └── phase6_market_correlation.csv / india_phase6_market_correlation.csv
+├── US_India_ML_Asset_Pricing_Paper.pdf     # Full comparative paper (source: the .md alongside it)
+├── US_India_ML_Asset_Pricing_Paper_v2.md
 ├── requirements.txt
 └── README.md
 ```
@@ -164,12 +174,10 @@ The characteristics are calculated using information available up to each observ
 
 For each month \(t\), characteristics are standardized across the available stocks:
 
-$$
 \[
 z_{i,t,k} =
 \frac{x_{i,t,k}-\mu_{t,k}}{\sigma_{t,k}}
 \]
-$$
 
 This puts stocks on a comparable cross-sectional scale while keeping the normalization within each time period.
 
@@ -177,11 +185,11 @@ This puts stocks on a comparable cross-sectional scale while keeping the normali
 
 The model predicts the following month's return:
 
-```math
+\[
 R_{i,t\rightarrow t+1}
 =
 \frac{P_{i,t+1}-P_{i,t}}{P_{i,t}}
-```
+\]
 
 The target is therefore shifted forward relative to the characteristics used to make the prediction.
 
@@ -261,23 +269,19 @@ The model predictions are converted into a cross-sectional long-short strategy e
 
 Transaction cost:
 
-$$
 \[
 Cost_t =
 0.0010
 \times
 (Turnover_{long,t}+Turnover_{short,t})
 \]
-$$
 
 Net portfolio return:
 
-$$
 \[
 NetReturn_t =
 GrossReturn_t-Cost_t
 \]
-$$
 
 This means the evaluation is based on investable portfolio returns rather than model predictions alone.
 
@@ -291,21 +295,17 @@ The final evaluation combines predictive metrics, portfolio performance, statist
 
 Monthly Spearman rank correlation between predicted and realized cross-sectional returns:
 
-$$
 \[
 IC_t =
 SpearmanRankCorr(\hat R_{i,t},R_{i,t})
 \]
-$$
 
 and:
 
-$$
 \[
 ICIR =
 \frac{\mu_{IC}}{\sigma_{IC}}
 \]
-$$
 
 ### Portfolio Metrics
 
@@ -390,7 +390,50 @@ That distinction is important in financial machine learning: good backtest perfo
 
 ---
 
-# Limitations
+# Phase 8 — Cross-Market Extension: Indian Equities (NSE)
+
+The identical methodology (27 characteristics, 36 walk-forward folds → 35 evaluated months, 4 models, backtest mechanics, evaluation suite) was re-run on a second, equivalent 60-stock universe drawn from Indian equities (NSE: Nifty 50 + select Nifty Next 50 constituents), using the **same, parameterized pipeline code** — not a separate copy. Every script in `src/` accepts a `--market us` (default) or `--market india` flag; all characteristic formulas, validation logic, model training, and evaluation metrics are shared and unchanged between markets.
+
+## US vs. India Performance Comparison
+
+| Model | Market | Sharpe | Max DD | Ann. Return | IC | ICIR | HAC t-stat (p) |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Ridge | US | 0.629 | -29.4% | +18.8% | 0.037 | 0.133 | 0.976 (0.329) |
+| Ridge | India | 0.410 | -25.5% | +5.9% | 0.051 | 0.315 | 0.854 (0.393) |
+| Random Forest | US | 0.207 | -36.1% | +2.0% | 0.002 | 0.008 | 0.322 (0.748) |
+| Random Forest | India | 0.198 | -28.4% | +2.1% | 0.008 | 0.040 | 0.326 (0.745) |
+| XGBoost | US | 0.071 | -23.1% | -0.9% | 0.042 | 0.238 | 0.121 (0.904) |
+| XGBoost | India | 0.573 | -27.2% | +9.8% | 0.009 | 0.048 | 0.955 (0.340) |
+| Neural Network | US | 0.371 | -33.9% | +7.1% | 0.029 | 0.188 | 0.583 (0.560) |
+| Neural Network | India | 0.791 | -9.2% | +10.0% | 0.026 | 0.175 | 1.344 (0.179) |
+
+As in the US study, none of the models reaches statistical significance at the 5% level in India under either the naive or HAC-adjusted test.
+
+## Key Cross-Market Findings
+
+1. **No model wins in both markets.** Ridge is best in the US (Sharpe 0.63) but only third-best in India; the neural network is best in India (Sharpe 0.79) but only third-best in the US. Model performance appears to depend on the specific market and sample period rather than reflecting one generally superior architecture.
+
+2. **India's test window included real bear-market months (9 of 35); the US window had zero.** This let us regime-test in a way the US data alone couldn't support. Ridge's apparent bear-market outperformance (Sharpe 0.96) looked promising until stock-level inspection showed it was driven by just 2 of the 9 months — excluding them flips the Sharpe to -0.49. Treated as small-sample instability, not a genuine defensive property.
+
+3. **Small-leg concentration risk reproduced independently in both markets.** A US semiconductor rally (`INTC` +114%, `AMD` +74% in one month) and an Indian IT-earnings rally (`PERSISTENT` +28.7%, `HCLTECH` +27.0%) both show the same mechanism: with only 6 stocks per leg, a couple of extreme individual movers can dominate a month's portfolio return. Seeing this independently in two markets suggests it's a structural property of small-leg decile portfolios, not a one-off quirk.
+
+4. **The clearest example of "ranking skill ≠ point-prediction accuracy" came from India.** The Indian neural network had the best risk-adjusted portfolio return of any model in either market (Sharpe 0.79, -9.2% max drawdown) despite an out-of-sample R² of -18.5% — worse than simply predicting zero every month. This is only possible because decile portfolios depend on relative ranking, not prediction magnitude.
+
+**Full details, methodology writeup, and discussion:** see [`US_India_ML_Asset_Pricing_Paper.pdf`](./US_India_ML_Asset_Pricing_Paper.pdf) (source: `US_India_ML_Asset_Pricing_Paper_v2.md`).
+
+## Running the India Pipeline
+
+```bash
+python -m src.features.builder --market india
+python -m src.models.runner --market india
+python -m src.models.run_nn --market india
+python -m src.portfolio.run_backtest --market india
+python -m src.evaluation.runner --market india
+```
+
+Running any script with `--market us` (or omitting the flag, since US is the default) reproduces the original V1 results exactly — verified byte-identical after the Phase 8 refactor introduced the market parameter.
+
+---
 
 V1 deliberately makes several simplifications.
 
@@ -408,15 +451,15 @@ These limitations are part of why the project is structured as a research framew
 
 # Future Extensions
 
-The current V1 provides a base for several natural extensions:
+The current project provides a base for several natural extensions:
 
-- Expand the equity universe.
-- Compare the current characteristic set against a broader GKX-style characteristic dataset.
-- Re-run the same methodology on Indian equities and compare cross-market behavior.
-- Investigate regime-dependent model performance.
+- Expand the equity universe in both markets (larger leg sizes would reduce the small-leg concentration effect documented in Phase 8).
+- Compare the current characteristic set against a broader GKX-style characteristic dataset (Xiu's own published 94-characteristic data).
+- Use point-in-time historical index constituents to remove survivorship bias in both markets.
+- Model India-specific transaction costs (securities transaction tax) rather than reusing the US's flat 10bps assumption.
+- Investigate regime-dependent model performance with a longer out-of-sample window.
 - Explore uncertainty-aware portfolio construction.
-- Test additional transaction-cost and turnover assumptions.
-- Develop a novel research hypothesis from the empirical results and test it in a separate research phase.
+- Develop a novel research hypothesis from the empirical results (e.g., the small-leg concentration or ranking-vs-magnitude findings) and test it as a dedicated follow-up study.
 
 ---
 
@@ -424,6 +467,12 @@ The current V1 provides a base for several natural extensions:
 
 - Gu, S., Kelly, B., & Xiu, D. (2020). *Empirical Asset Pricing via Machine Learning*. The Review of Financial Studies, 33(5), 2223–2273.
 - Newey, W. K., & West, K. D. (1987). *A Simple, Positive Semi-Definite, Heteroskedasticity and Autocorrelation Consistent Covariance Matrix*. Econometrica, 55(3), 703–708.
+- Jegadeesh, N., & Titman, S. (1993). *Returns to Buying Winners and Selling Losers: Implications for Stock Market Efficiency*. The Journal of Finance, 48(1), 65–91.
+- De Bondt, W. F. M., & Thaler, R. (1985). *Does the Stock Market Overreact?* The Journal of Finance, 40(3), 793–805.
+- Fieberg, C., Metko, D., Poddig, T., & Loy, T. (2023). *Machine learning techniques for cross-sectional equity returns' prediction*. OR Spectrum, 45(1), 289–323.
+- Lalwani, V., & Meshram, V. V. (2022). *The cross-section of Indian stock returns: evidence using machine learning*. Applied Economics, 54(16), 1814–1828.
+
+Full citations and discussion in [`US_India_ML_Asset_Pricing_Paper.pdf`](./US_India_ML_Asset_Pricing_Paper.pdf).
 
 ---
 
