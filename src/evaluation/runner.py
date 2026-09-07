@@ -10,12 +10,26 @@ import numpy as np
 from src.evaluation.metrics import PerformanceEvaluator
 
 
-def run_phase6():
-    print("=== STARTING PHASE 6: PERFORMANCE EVALUATION & REGIME ANALYSIS ===", flush=True)
+def run_phase6(market: str = "us"):
+    market = market.lower()
+    print(f"=== STARTING PHASE 6 ({market.upper()}): PERFORMANCE EVALUATION & REGIME ANALYSIS ===", flush=True)
 
-    bkt_path = "results/phase5_backtest_results.csv"
-    oos_path = "data/processed/oos_predictions.parquet"
-    spy_path = "data/raw/spy_benchmark.parquet"
+    if market == "us":
+        bkt_path = "results/phase5_backtest_results.csv"
+        oos_path = "data/processed/oos_predictions.parquet"
+        spy_path = "data/raw/spy_benchmark.parquet"
+        f1 = "results/phase6_performance_summary.csv"
+        f2 = "results/phase6_regime_breakdown.csv"
+        f3 = "results/phase6_market_correlation.csv"
+    elif market == "india":
+        bkt_path = "results/india_phase5_backtest_results.csv"
+        oos_path = "data/processed/india_oos_predictions.parquet"
+        spy_path = "data/raw/india_nifty_benchmark.parquet"
+        f1 = "results/india_phase6_performance_summary.csv"
+        f2 = "results/india_phase6_regime_breakdown.csv"
+        f3 = "results/india_phase6_market_correlation.csv"
+    else:
+        raise ValueError(f"Unknown market '{market}'. Expected 'us' or 'india'.")
 
     for path in [bkt_path, oos_path, spy_path]:
         if not os.path.exists(path):
@@ -25,7 +39,7 @@ def run_phase6():
     oos_df = pd.read_parquet(oos_path)
     spy_df = pd.read_parquet(spy_path)
 
-    print(f"Loaded backtest results ({len(bkt_df)} rows), OOS predictions ({len(oos_df)} rows), SPY benchmark ({len(spy_df)} rows).", flush=True)
+    print(f"Loaded backtest results ({len(bkt_df)} rows), OOS predictions ({len(oos_df)} rows), Benchmark ({len(spy_df)} rows).", flush=True)
 
     evaluator = PerformanceEvaluator(bkt_df=bkt_df, oos_df=oos_df, spy_df=spy_df)
     perf_summary_df, regime_breakdown_df, market_corr_df = evaluator.compute_all()
@@ -33,10 +47,6 @@ def run_phase6():
     os.makedirs("results", exist_ok=True)
 
     # Save output CSVs
-    f1 = "results/phase6_performance_summary.csv"
-    f2 = "results/phase6_regime_breakdown.csv"
-    f3 = "results/phase6_market_correlation.csv"
-
     perf_summary_df.to_csv(f1, index=False)
     regime_breakdown_df.to_csv(f2, index=False)
     market_corr_df.to_csv(f3, index=False)
@@ -57,15 +67,15 @@ def print_verifications(
     print("=" * 70, flush=True)
 
     # 1. Performance Summary CSV
-    print("\n--- 1. RESULTS / PHASE6_PERFORMANCE_SUMMARY.CSV ---", flush=True)
+    print("\n--- 1. PERFORMANCE SUMMARY ---", flush=True)
     print(perf_df.to_string(index=False), flush=True)
 
     # 2. Regime Breakdown CSV
-    print("\n--- 2. RESULTS / PHASE6_REGIME_BREAKDOWN.CSV ---", flush=True)
+    print("\n--- 2. REGIME BREAKDOWN ---", flush=True)
     print(regime_df.to_string(index=False), flush=True)
 
     # 3. Market Correlation CSV
-    print("\n--- 3. RESULTS / PHASE6_MARKET_CORRELATION.CSV ---", flush=True)
+    print("\n--- 3. MARKET CORRELATION ---", flush=True)
     print(corr_df.to_string(index=False), flush=True)
 
     # 4. Explicit Callouts
@@ -87,35 +97,24 @@ def print_verifications(
 
     n_models = len(perf_df)
     print(
-        f"\nStatistical Power Note: With N = 35 test months, statistical power is inherently limited. "
-        f"None of the {n_models} models achieve statistical significance at p < 0.05 under either naive or HAC-adjusted tests. "
-        "Ridge exhibits the highest t-statistic (HAC t = 0.9764, p = 0.3289), but remains statistically indistinguishable from zero over this sample size.",
+        f"\nStatistical Power Note: With N test months, statistical power is inherently limited. "
+        f"Model significance evaluated under naive and HAC-adjusted tests.",
         flush=True,
     )
 
-    # Callout 2: SPY Market Correlation & Methodological Note
+    # Callout 2: Benchmark Correlation & Methodological Note
     print("\n--- CALLOUT 2: MARKET CORRELATION & METHODOLOGICAL DISTINCTION ---", flush=True)
     print(
         "Methodological Note on Correlation Choice:\n"
         "- Spearman Rank Correlation is used for IC because cross-sectional return prediction evaluation requires rank robustness to stock return outliers.\n"
-        "- Pearson Linear Correlation is intentionally used for SPY Market Correlation to measure true linear co-movement and market beta exposure.",
+        "- Pearson Linear Correlation is intentionally used for Benchmark Correlation to measure true linear co-movement and market beta exposure.",
         flush=True,
     )
     for idx, row in corr_df.iterrows():
         model = row["model_name"]
         corr = row["spy_correlation"]
         p_val = row["p_value"]
-        print(f"Model: {model:12s} | SPY Pearson Return Corr: {corr:+.4f} (p = {p_val:.4f})", flush=True)
-
-    print(
-        "\nDiagnostic Finding on Ridge Performance:\n"
-        "In Phase 4, Ridge exhibited the smallest cross-sectional prediction spread (0.53% monthly std) due to heavy alpha regularization.\n"
-        "However, Ridge's Pearson correlation with SPY monthly market returns is virtually zero (r = +0.0601, p = 0.7318).\n"
-        "This proves that Ridge's strong cumulative equity curve is NOT driven by market drift or unhedged market beta.\n"
-        "Because the portfolio is dollar-neutral long-short, heavy regularization eliminates noisy stock-level feature coefficients, "
-        "leaving a stable, low-variance linear signal that generates steady long-short spread without taking market direction risk.",
-        flush=True,
-    )
+        print(f"Model: {model:12s} | Benchmark Pearson Return Corr: {corr:+.4f} (p = {p_val:.4f})", flush=True)
 
     # Callout 3: Low-Confidence Regime Flagging (< 8 months) & 0-Month Handling
     print("\n--- CALLOUT 3: LOW-CONFIDENCE REGIME BUCKETS (< 8 MONTHS) ---", flush=True)
@@ -136,4 +135,10 @@ def print_verifications(
 
 
 if __name__ == "__main__":
-    run_phase6()
+    import argparse
+    parser = argparse.ArgumentParser(description="Run Phase 6 evaluation for US or India market.")
+    parser.add_argument("--market", type=str, default="us", choices=["us", "india"], help="Target market (default: us)")
+    args = parser.parse_args()
+
+    run_phase6(market=args.market)
+

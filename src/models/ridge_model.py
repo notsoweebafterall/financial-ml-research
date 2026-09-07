@@ -31,6 +31,7 @@ class RidgeModelTrainer:
         ]
         self.fitted_imputer: SimpleImputer | None = None
         self.fitted_scaler: StandardScaler | None = None
+        self.feature_importance_: pd.Series | None = None
 
     def train_and_predict(
         self, fold_id: int, train_df: pd.DataFrame, test_df: pd.DataFrame
@@ -87,6 +88,14 @@ class RidgeModelTrainer:
 
         final_model = Ridge(alpha=best_alpha)
         final_model.fit(X_train_scaled, y_train)
+
+        # Feature importance for linear model:
+        # absolute standardized coefficients make feature effects comparable.
+        self.feature_importance_ = pd.Series(
+            np.abs(final_model.coef_),
+            index=self.feature_cols,
+            name="importance",
+        )
 
         # Transform test set using full-window fitted objects
         X_test_imp = self.fitted_imputer.transform(test_df[self.feature_cols])

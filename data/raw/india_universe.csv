@@ -1,0 +1,61 @@
+ticker,sector
+HDFCBANK.NS,Financials
+ICICIBANK.NS,Financials
+SBIN.NS,Financials
+KOTAKBANK.NS,Financials
+AXISBANK.NS,Financials
+BAJFINANCE.NS,Financials
+BAJAJFINSV.NS,Financials
+HDFCLIFE.NS,Financials
+SBILIFE.NS,Financials
+SHRIRAMFIN.NS,Financials
+INDUSINDBK.NS,Financials
+CHOLAFIN.NS,Financials
+TCS.NS,Technology
+INFY.NS,Technology
+HCLTECH.NS,Technology
+WIPRO.NS,Technology
+MPHASIS.NS,Technology
+TECHM.NS,Technology
+PERSISTENT.NS,Technology
+COFORGE.NS,Technology
+HINDUNILVR.NS,Consumer Staples
+ITC.NS,Consumer Staples
+NESTLEIND.NS,Consumer Staples
+BRITANNIA.NS,Consumer Staples
+TATACONSUM.NS,Consumer Staples
+VBL.NS,Consumer Staples
+GODREJCP.NS,Consumer Staples
+MARUTI.NS,Consumer Discretionary
+TVSMOTOR.NS,Consumer Discretionary
+M&M.NS,Consumer Discretionary
+TITAN.NS,Consumer Discretionary
+EICHERMOT.NS,Consumer Discretionary
+BAJAJ-AUTO.NS,Consumer Discretionary
+HEROMOTOCO.NS,Consumer Discretionary
+TRENT.NS,Consumer Discretionary
+SUNPHARMA.NS,Healthcare
+CIPLA.NS,Healthcare
+DRREDDY.NS,Healthcare
+DIVISLAB.NS,Healthcare
+APOLLOHOSP.NS,Healthcare
+ZYDUSLIFE.NS,Healthcare
+LT.NS,Industrials
+BEL.NS,Industrials
+SIEMENS.NS,Industrials
+HAL.NS,Industrials
+ABB.NS,Industrials
+ADANIPORTS.NS,Industrials
+COALINDIA.NS,Industrials
+RELIANCE.NS,Energy
+NTPC.NS,Energy
+ONGC.NS,Energy
+POWERGRID.NS,Energy
+BPCL.NS,Energy
+IOC.NS,Energy
+ULTRACEMCO.NS,Materials
+JSWSTEEL.NS,Materials
+TATASTEEL.NS,Materials
+ASIANPAINT.NS,Materials
+GRASIM.NS,Materials
+HINDALCO.NS,Materials

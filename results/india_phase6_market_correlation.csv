@@ -1,0 +1,5 @@
+model_name,spy_correlation,p_value
+NeuralNet,0.041,0.8152
+RandomForest,0.1534,0.379
+Ridge,-0.0473,0.7872
+XGBoost,0.1684,0.3337

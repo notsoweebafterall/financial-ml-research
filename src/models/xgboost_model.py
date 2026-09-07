@@ -18,6 +18,7 @@ class XGBoostModelTrainer:
         self.grid_max_depth = [2, 3, 5]
         self.grid_learning_rate = [0.01, 0.03, 0.05, 0.1]
         self.fitted_imputer: SimpleImputer | None = None
+        self.feature_importance_: pd.Series | None = None
 
     def train_and_predict(
         self, fold_id: int, train_df: pd.DataFrame, test_df: pd.DataFrame
@@ -85,6 +86,13 @@ class XGBoostModelTrainer:
             n_jobs=-1,
         )
         final_model.fit(X_train_imp, y_train)
+
+        # Native XGBoost feature importance.
+        self.feature_importance_ = pd.Series(
+            final_model.feature_importances_,
+            index=self.feature_cols,
+            name="importance",
+        )
 
         # Transform test set using full-window fitted imputer
         X_test_imp = self.fitted_imputer.transform(test_df[self.feature_cols])

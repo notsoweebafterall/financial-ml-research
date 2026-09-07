@@ -17,6 +17,7 @@ class RandomForestModelTrainer:
         self.grid_n_estimators = [50, 100, 200]
         self.grid_max_depth = [3, 5, 10]
         self.fitted_imputer: SimpleImputer | None = None
+        self.feature_importance_: pd.Series | None = None
 
     def train_and_predict(
         self, fold_id: int, train_df: pd.DataFrame, test_df: pd.DataFrame
@@ -77,6 +78,13 @@ class RandomForestModelTrainer:
             n_jobs=-1,
         )
         final_model.fit(X_train_imp, y_train)
+
+        # Native tree-based feature importance.
+        self.feature_importance_ = pd.Series(
+            final_model.feature_importances_,
+            index=self.feature_cols,
+            name="importance",
+        )
 
         # Transform test set using full-window fitted imputer
         X_test_imp = self.fitted_imputer.transform(test_df[self.feature_cols])

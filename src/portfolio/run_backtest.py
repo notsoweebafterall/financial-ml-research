@@ -18,12 +18,25 @@ DECILE_FRAC = 0.1
 TRANSACTION_COST_BPS = 10.0
 
 
-def main():
+def main(market: str = "us"):
+    market = market.lower()
+    print(f"=== RUNNING PORTFOLIO BACKTEST ({market.upper()}) ===", flush=True)
     RESULTS_DIR.mkdir(exist_ok=True)
 
-    predictions = pd.read_parquet(PREDICTIONS_PATH)
+    if market == "us":
+        predictions_path = Path("data/processed/oos_predictions.parquet")
+        results_csv = RESULTS_DIR / "phase5_backtest_results.csv"
+        equity_png = RESULTS_DIR / "phase5_equity_curves.png"
+    elif market == "india":
+        predictions_path = Path("data/processed/india_oos_predictions.parquet")
+        results_csv = RESULTS_DIR / "india_phase5_backtest_results.csv"
+        equity_png = RESULTS_DIR / "india_phase5_equity_curves.png"
+    else:
+        raise ValueError(f"Unknown market '{market}'. Expected 'us' or 'india'.")
+
+    predictions = pd.read_parquet(predictions_path)
     model_names = predictions["model_name"].unique()
-    print(f"Found models: {list(model_names)}")
+    print(f"Found models in {predictions_path}: {list(model_names)}")
 
     all_results = []
     for model_name in model_names:
@@ -49,8 +62,8 @@ def main():
         print(f"  Cost drag on final equity: {total_cost_drag:.4f}")
 
     combined = pd.concat(all_results, ignore_index=True)
-    combined.to_csv(RESULTS_DIR / "phase5_backtest_results.csv", index=False)
-    print(f"\nSaved combined results to {RESULTS_DIR / 'phase5_backtest_results.csv'}")
+    combined.to_csv(results_csv, index=False)
+    print(f"\nSaved combined results to {results_csv}")
 
     # Equity curve plot, all models overlaid
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -58,14 +71,21 @@ def main():
         model_result = combined[combined["model_name"] == model_name]
         ax.plot(model_result["date"], model_result["cumulative_equity"], label=model_name)
     ax.axhline(1.0, color="gray", linestyle="--", linewidth=0.8)
-    ax.set_title("Long-Short Decile Portfolio — Cumulative Equity (Net of Costs)")
+    ax.set_title(f"Long-Short Decile Portfolio ({market.upper()}) — Cumulative Equity (Net of Costs)")
     ax.set_xlabel("Date")
     ax.set_ylabel("Portfolio Value (starting at 1.0)")
     ax.legend()
     fig.tight_layout()
-    fig.savefig(RESULTS_DIR / "phase5_equity_curves.png", dpi=150)
-    print(f"Saved equity curve plot to {RESULTS_DIR / 'phase5_equity_curves.png'}")
+    fig.savefig(equity_png, dpi=150)
+    plt.close(fig)
+    print(f"Saved equity curve plot to {equity_png}")
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description="Run portfolio backtest for US or India market.")
+    parser.add_argument("--market", type=str, default="us", choices=["us", "india"], help="Target market (default: us)")
+    args = parser.parse_args()
+
+    main(market=args.market)
+

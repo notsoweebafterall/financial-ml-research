@@ -1,0 +1,17 @@
+model_name,regime_bucket,sharpe_ratio,hit_rate,mean_net_return,n_months,low_confidence_flag
+NeuralNet,bull,1.186,0.6154,0.0136,26,False
+NeuralNet,bear,-0.6242,0.3333,-0.0055,9,False
+NeuralNet,high_vol,0.4148,0.4706,0.0043,17,False
+NeuralNet,low_vol,1.0991,0.6111,0.0128,18,False
+RandomForest,bull,0.5506,0.5769,0.0095,26,False
+RandomForest,bear,-0.9581,0.3333,-0.0146,9,False
+RandomForest,high_vol,0.1638,0.4706,0.0029,17,False
+RandomForest,low_vol,0.2281,0.5556,0.0037,18,False
+Ridge,bull,0.1164,0.5,0.0015,26,False
+Ridge,bear,0.9638,0.5556,0.0191,9,False
+Ridge,high_vol,1.1702,0.5294,0.0179,17,False
+Ridge,low_vol,-0.391,0.5,-0.0053,18,False
+XGBoost,bull,0.6728,0.6154,0.0118,26,False
+XGBoost,bear,0.1748,0.6667,0.0022,9,False
+XGBoost,high_vol,0.4874,0.7059,0.0071,17,False
+XGBoost,low_vol,0.6298,0.5556,0.0114,18,False

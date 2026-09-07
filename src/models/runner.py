@@ -15,21 +15,37 @@ from src.validation.walkforward import WalkForwardSplitter
 from src.models.ridge_model import RidgeModelTrainer
 from src.models.random_forest_model import RandomForestModelTrainer
 from src.models.xgboost_model import XGBoostModelTrainer
+from collections import defaultdict
+import matplotlib.pyplot as plt
 
 
-def run_phase4():
-    print("=== STARTING PHASE 4: MODEL TRAINING & OUT-OF-SAMPLE PREDICTIONS ===", flush=True)
+def run_phase4(market: str = "us"):
+    market = market.lower()
+    print(f"=== STARTING PHASE 4 ({market.upper()}): MODEL TRAINING & OUT-OF-SAMPLE PREDICTIONS ===", flush=True)
     t_start = time.time()
 
-    data_path = "data/processed/characteristics_panel.parquet"
+    if market == "us":
+        data_path = "data/processed/characteristics_panel.parquet"
+        output_pred_path = "data/processed/oos_predictions.parquet"
+        output_params_path = "results/phase4_selected_hyperparameters.csv"
+        feature_importance_path = "results/phase6_feature_importance.csv"
+    elif market == "india":
+        data_path = "data/processed/india_characteristics_panel.parquet"
+        output_pred_path = "data/processed/india_oos_predictions.parquet"
+        output_params_path = "results/india_phase4_selected_hyperparameters.csv"
+        feature_importance_path = "results/india_phase6_feature_importance.csv"
+    else:
+        raise ValueError(f"Unknown market '{market}'. Expected 'us' or 'india'.")
+
     if not os.path.exists(data_path):
         raise FileNotFoundError(f"Input file not found: {data_path}")
 
     raw_df = pd.read_parquet(data_path)
     print(f"Loaded raw characteristics panel dataset: {raw_df.shape[0]} rows, {raw_df.shape[1]} columns.", flush=True)
 
-    # Trim to first fully-usable month onward (after 36-month warmup for ltr_reversal)
-    min_usable_date = "2019-09-01"
+    # Dynamically determine min_usable_date after 36-month warmup for ltr_reversal
+    all_dates = sorted(raw_df["date"].unique())
+    min_usable_date = all_dates[36] if len(all_dates) > 36 else all_dates[0]
     df = raw_df[raw_df["date"] >= min_usable_date].reset_index(drop=True)
     print(
         f"Trimmed dataset to dates >= '{min_usable_date}' (first fully-usable month after 36-month ltr_reversal warmup): "
@@ -49,10 +65,11 @@ def run_phase4():
     )
 
     folds = list(splitter.split(df))
-    print(f"Generated {len(folds)} expanding walk-forward folds (matching Phase 3 configuration).", flush=True)
+    print(f"Generated {len(folds)} expanding walk-forward folds.", flush=True)
 
     all_predictions: List[pd.DataFrame] = []
     hyperparam_logs: List[Dict[str, Any]] = []
+    feature_importance_records: List[Dict[str, Any]] = []
 
     # Verification tracking for spot checks
     spot_check_results = []
@@ -67,6 +84,16 @@ def run_phase4():
             fold_id=fold.fold_id, train_df=train_df, test_df=test_df
         )
         all_predictions.append(ridge_preds)
+        if ridge_trainer.feature_importance_ is not None:
+            for feature, importance in ridge_trainer.feature_importance_.items():
+                feature_importance_records.append(
+                    {
+                        "fold_id": fold.fold_id,
+                        "model_name": "Ridge",
+                        "feature": feature,
+                        "importance": float(importance),
+                    }
+                )
         hyperparam_logs.append(
             {
                 "fold_id": fold.fold_id,
@@ -81,6 +108,16 @@ def run_phase4():
             fold_id=fold.fold_id, train_df=train_df, test_df=test_df
         )
         all_predictions.append(rf_preds)
+        if rf_trainer.feature_importance_ is not None:
+            for feature, importance in rf_trainer.feature_importance_.items():
+                feature_importance_records.append(
+                    {
+                        "fold_id": fold.fold_id,
+                        "model_name": "RandomForest",
+                        "feature": feature,
+                        "importance": float(importance),
+                    }
+                )
         hyperparam_logs.append(
             {
                 "fold_id": fold.fold_id,
@@ -95,6 +132,16 @@ def run_phase4():
             fold_id=fold.fold_id, train_df=train_df, test_df=test_df
         )
         all_predictions.append(xgb_preds)
+        if xgb_trainer.feature_importance_ is not None:
+            for feature, importance in xgb_trainer.feature_importance_.items():
+                feature_importance_records.append(
+                    {
+                        "fold_id": fold.fold_id,
+                        "model_name": "XGBoost",
+                        "feature": feature,
+                        "importance": float(importance),
+                    }
+                )
         hyperparam_logs.append(
             {
                 "fold_id": fold.fold_id,
@@ -128,16 +175,43 @@ def run_phase4():
     oos_preds_df = pd.concat(all_predictions, ignore_index=True)
 
     # Save out-of-sample predictions
-    output_pred_path = "data/processed/oos_predictions.parquet"
     os.makedirs(os.path.dirname(output_pred_path), exist_ok=True)
     oos_preds_df.to_parquet(output_pred_path, index=False)
     print(f"Saved out-of-sample predictions to '{output_pred_path}' ({len(oos_preds_df)} total rows).", flush=True)
 
     # Save hyperparameter logs
     hyperparam_df = pd.DataFrame(hyperparam_logs)
-    os.makedirs("results", exist_ok=True)
-    output_params_path = "results/phase4_selected_hyperparameters.csv"
+    os.makedirs(os.path.dirname(output_params_path), exist_ok=True)
     hyperparam_df.to_csv(output_params_path, index=False)
+
+    # Aggregate feature importance across walk-forward folds.
+    feature_importance_df = pd.DataFrame(feature_importance_records)
+
+    if not feature_importance_df.empty:
+        feature_importance_summary = (
+            feature_importance_df
+            .groupby(["model_name", "feature"])["importance"]
+            .agg(
+                mean_importance="mean",
+                std_importance="std",
+            )
+            .reset_index()
+            .sort_values(
+                ["model_name", "mean_importance"],
+                ascending=[True, False],
+            )
+        )
+
+        feature_importance_summary.to_csv(
+            feature_importance_path,
+            index=False,
+        )
+
+        print(
+            f"Saved feature importance summary to '{feature_importance_path}'.",
+            flush=True,
+        )
+
     print(f"Saved hyperparameter log to '{output_params_path}'.", flush=True)
 
     t_end = time.time()
@@ -198,10 +272,10 @@ def run_verifications(
 
     # 4. Hyperparameter Stability Log Preview
     print("\n--- 4. HYPERPARAMETER STABILITY LOG PREVIEW ---", flush=True)
-    print("First 9 rows of results/phase4_selected_hyperparameters.csv:", flush=True)
+    print("First 9 rows of hyperparameter log:", flush=True)
     print(hyperparam_df.head(9).to_string(index=False), flush=True)
 
-    print("\nSelected Hyperparameter Distribution Summary across all 36 folds:", flush=True)
+    print("\nSelected Hyperparameter Distribution Summary across folds:", flush=True)
     for model_name, sub in hyperparam_df.groupby("model_name"):
         print(f"\n{model_name} Selected Params Frequency:", flush=True)
         print(sub["selected_params"].value_counts().to_string(), flush=True)
@@ -210,4 +284,10 @@ def run_verifications(
 
 
 if __name__ == "__main__":
-    run_phase4()
+    import argparse
+    parser = argparse.ArgumentParser(description="Run Phase 4 model training for US or India market.")
+    parser.add_argument("--market", type=str, default="us", choices=["us", "india"], help="Target market (default: us)")
+    args = parser.parse_args()
+
+    run_phase4(market=args.market)
+

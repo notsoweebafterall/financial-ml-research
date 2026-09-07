@@ -23,19 +23,29 @@ DATE_COL = "date"
 NON_FEATURE_COLS = {"ticker", "date", LABEL_COL}
 
 
-def main():
-    panel = pd.read_parquet(PANEL_PATH)
+def main(market: str = "us"):
+    market = market.lower()
+    print(f"=== RUNNING NEURAL NETWORK ({market.upper()}) ===", flush=True)
+
+    if market == "us":
+        panel_path = Path("data/processed/characteristics_panel.parquet")
+        predictions_path = Path("data/processed/oos_predictions.parquet")
+    elif market == "india":
+        panel_path = Path("data/processed/india_characteristics_panel.parquet")
+        predictions_path = Path("data/processed/india_oos_predictions.parquet")
+    else:
+        raise ValueError(f"Unknown market '{market}'. Expected 'us' or 'india'.")
+
+    panel = pd.read_parquet(panel_path)
     panel[DATE_COL] = pd.to_datetime(panel[DATE_COL])
 
-    # Match the exact trim applied in Phase 4 — the raw panel on disk still has all
-    # 120 months (including the 36-month warmup period). Phase 4 trimmed this in
-    # memory but never saved the trimmed version back to disk, so we must reapply
-    # the same trim here or we'll silently reproduce the "72 folds instead of 36" bug.
-    TRIM_START = "2019-09-01"
+    # Dynamic 36-month warmup date trim
+    all_dates = sorted(panel[DATE_COL].unique())
+    trim_start = all_dates[36] if len(all_dates) > 36 else all_dates[0]
     before_trim = len(panel)
-    panel = panel[panel[DATE_COL] >= TRIM_START].reset_index(drop=True)
-    print(f"Trimmed panel to date >= {TRIM_START}: {before_trim} -> {len(panel)} rows "
-          f"(matches the fix applied in Phase 4)")
+    panel = panel[panel[DATE_COL] >= trim_start].reset_index(drop=True)
+    print(f"Trimmed panel to date >= {trim_start.date()}: {before_trim} -> {len(panel)} rows "
+          f"(after 36-month ltr_reversal warmup)")
 
     feature_cols = [c for c in panel.columns if c not in NON_FEATURE_COLS]
     print(f"Using {len(feature_cols)} feature columns.")
@@ -44,10 +54,14 @@ def main():
         date_col=DATE_COL, min_train_months=48, test_window_months=1, step_months=1
     )
 
+    folds = list(splitter.split(panel))
+    total_folds = len(folds)
+    print(f"Generated {total_folds} expanding walk-forward folds.")
+
     all_predictions = []
     start = time.time()
 
-    for fold in splitter.split(panel):
+    for fold in folds:
         train_df = panel.loc[fold.train_index]
         test_df = panel.loc[fold.test_index]
 
@@ -69,7 +83,7 @@ def main():
         all_predictions.append(result.predictions)
 
         elapsed = time.time() - start
-        print(f"Fold {fold.fold_id:2d}/{35} | test month {fold.test_start.date()} | "
+        print(f"Fold {fold.fold_id:2d}/{total_folds-1} | test month {fold.test_start.date()} | "
               f"best_n_epochs={result.best_n_epochs:3d} | "
               f"inner_val_loss={result.inner_val_loss:.6f} | "
               f"elapsed={elapsed:.0f}s")
@@ -77,19 +91,24 @@ def main():
     nn_predictions = pd.concat(all_predictions, ignore_index=True)
     nn_predictions["date"] = pd.to_datetime(nn_predictions["date"])
 
-    # Append to the existing predictions file from Phase 4, rather than overwriting.
-    # Force both frames to a consistent datetime dtype before concatenating — mixing
-    # a string-typed date column (however it was saved before) with Timestamp objects
-    # produces an 'object' dtype column that pyarrow cannot write, causing a crash.
-    existing = pd.read_parquet(PREDICTIONS_PATH)
+    # Append NeuralNet predictions to existing oos_predictions
+    existing = pd.read_parquet(predictions_path)
     existing["date"] = pd.to_datetime(existing["date"])
+    # Remove any existing NeuralNet predictions if re-running to avoid duplicates
+    existing = existing[existing["model_name"] != "NeuralNet"]
     combined = pd.concat([existing, nn_predictions], ignore_index=True)
-    combined.to_parquet(PREDICTIONS_PATH, index=False)
+    combined.to_parquet(predictions_path, index=False)
 
     print(f"\nDone. Added {len(nn_predictions)} NeuralNet predictions.")
-    print(f"Total rows in {PREDICTIONS_PATH}: {len(combined)}")
+    print(f"Total rows in {predictions_path}: {len(combined)}")
     print(f"Models now present: {sorted(combined['model_name'].unique())}")
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description="Run Neural Network model training for US or India market.")
+    parser.add_argument("--market", type=str, default="us", choices=["us", "india"], help="Target market (default: us)")
+    args = parser.parse_args()
+
+    main(market=args.market)
+

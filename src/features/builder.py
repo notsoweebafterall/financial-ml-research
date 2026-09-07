@@ -48,37 +48,47 @@ FEATURE_COLUMNS = [
 class CharacteristicBuilder:
     """Builds point-in-time compliant characteristics and target labels."""
 
-    def __init__(self, project_root: Optional[Path] = None):
+    def __init__(self, project_root: Optional[Path] = None, market: str = "us"):
         if project_root is None:
             project_root = Path(__file__).resolve().parents[2]
         self.project_root = Path(project_root)
+        self.market = market.lower()
 
-        self.prices_path = self.project_root / "data" / "raw" / "prices.parquet"
-        self.spy_path = self.project_root / "data" / "raw" / "spy_benchmark.parquet"
-        self.output_path = (
-            self.project_root / "data" / "processed" / "characteristics_panel.parquet"
-        )
+        if self.market == "us":
+            self.prices_path = self.project_root / "data" / "raw" / "prices.parquet"
+            self.spy_path = self.project_root / "data" / "raw" / "spy_benchmark.parquet"
+            self.output_path = (
+                self.project_root / "data" / "processed" / "characteristics_panel.parquet"
+            )
+        elif self.market == "india":
+            self.prices_path = self.project_root / "data" / "raw" / "india_prices.parquet"
+            self.spy_path = self.project_root / "data" / "raw" / "india_nifty_benchmark.parquet"
+            self.output_path = (
+                self.project_root / "data" / "processed" / "india_characteristics_panel.parquet"
+            )
+        else:
+            raise ValueError(f"Unknown market '{market}'. Expected 'us' or 'india'.")
 
     def load_data(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """Loads price dataset and SPY benchmark dataset."""
+        """Loads price dataset and SPY/Nifty benchmark dataset."""
         if not self.prices_path.exists():
             raise FileNotFoundError(f"Prices parquet not found at {self.prices_path}")
         if not self.spy_path.exists():
-            raise FileNotFoundError(f"SPY parquet not found at {self.spy_path}")
+            raise FileNotFoundError(f"Benchmark parquet not found at {self.spy_path}")
 
         df_prices = pd.read_parquet(self.prices_path)
         df_spy = pd.read_parquet(self.spy_path)
 
         logger.info(
-            f"Loaded prices dataset ({len(df_prices)} rows, {df_prices['ticker'].nunique()} tickers)"
+            f"Loaded prices dataset for market '{self.market}' ({len(df_prices)} rows, {df_prices['ticker'].nunique()} tickers)"
         )
-        logger.info(f"Loaded SPY benchmark dataset ({len(df_spy)} rows)")
+        logger.info(f"Loaded benchmark dataset for market '{self.market}' ({len(df_spy)} rows)")
 
         return df_prices, df_spy
 
     @staticmethod
     def _compute_spy_returns(df_spy: pd.DataFrame) -> pd.DataFrame:
-        """Computes SPY 1-month returns from adj_close."""
+        """Computes benchmark 1-month returns from adj_close."""
         df_spy_sorted = df_spy.sort_values("date").reset_index(drop=True)
         spy_adj_close = df_spy_sorted["adj_close"].values
         spy_ret = np.full(len(df_spy_sorted), np.nan)
@@ -116,7 +126,7 @@ class CharacteristicBuilder:
         dollar_vol = close * volume
         df["dollar_vol"] = dollar_vol
 
-        # Merge SPY benchmark return
+        # Merge SPY/Nifty benchmark return
         df = df.merge(df_spy_returns, on="date", how="left")
         spy_ret = df["spy_ret_1m"].values
 
@@ -295,7 +305,7 @@ class CharacteristicBuilder:
         df_spy_returns = self._compute_spy_returns(df_spy)
 
         tickers = df_prices["ticker"].unique()
-        logger.info(f"Building characteristics panel for {len(tickers)} tickers...")
+        logger.info(f"Building characteristics panel for {len(tickers)} tickers (market='{self.market}')...")
 
         ticker_panels: List[pd.DataFrame] = []
 
@@ -318,9 +328,15 @@ class CharacteristicBuilder:
 
 
 def run_feature_engineering() -> None:
-    builder = CharacteristicBuilder()
+    import argparse
+    parser = argparse.ArgumentParser(description="Build characteristics panel for US or India market.")
+    parser.add_argument("--market", type=str, default="us", choices=["us", "india"], help="Target market (default: us)")
+    args = parser.parse_args()
+
+    builder = CharacteristicBuilder(market=args.market)
     builder.build_panel()
 
 
 if __name__ == "__main__":
     run_feature_engineering()
+

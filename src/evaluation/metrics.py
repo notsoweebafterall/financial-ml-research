@@ -87,6 +87,28 @@ class PerformanceEvaluator:
             t_hac = float(ols.tvalues[0])
             p_hac = float(ols.pvalues[0])
 
+            oos_y_true = sub_oos["actual_return"].values
+            oos_y_pred = sub_oos["predicted_return"].values
+
+            ss_res_oos = np.sum((oos_y_true - oos_y_pred) ** 2)
+            ss_tot_zero_oos = np.sum(oos_y_true ** 2)
+            ss_tot_mean_oos = np.sum(
+                (oos_y_true - np.mean(oos_y_true)) ** 2
+            )
+
+            r2_oos_zero = (
+                1.0 - ss_res_oos / ss_tot_zero_oos
+                if ss_tot_zero_oos > 0
+                else np.nan
+            )
+
+            r2_oos_mean = (
+                1.0 - ss_res_oos / ss_tot_mean_oos
+                if ss_tot_mean_oos > 0
+                else np.nan
+            )
+
+
             perf_rows.append(
                 {
                     "model_name": model,
@@ -100,6 +122,8 @@ class PerformanceEvaluator:
                     "naive_p_value": round(float(p_naive), 4),
                     "hac_t_stat": round(t_hac, 4),
                     "hac_p_value": round(p_hac, 4),
+                    "oos_r2_zero": round(float(r2_oos_zero), 6),
+                    "oos_r2_mean": round(float(r2_oos_mean), 6),
                 }
             )
 
