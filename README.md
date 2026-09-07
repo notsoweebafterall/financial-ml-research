@@ -25,7 +25,7 @@ The goal of V1 was not to reproduce every detail of the original GKX dataset. In
 
 3. **The out-of-sample evidence is statistically inconclusive.** With **35 out-of-sample test months**, none of the tested portfolio return series is statistically significant at the 5% level under either the naive one-sample t-test or the Newey-West HAC-adjusted test. Ridge had the highest HAC t-statistic (**0.9764**, p = **0.3289**).
 
-4. **NeuralNet performed particularly strongly late in the test period.** It achieved a **+45.00% cumulative net return** from 2026-03 through 2026-07. This period included strong performance in several semiconductor holdings, including `INTC`, `AMD`, and `AVGO`.
+4. **NeuralNet performed particularly strongly late in the test period.** It achieved a **+45.00% cumulative net return** from 2026-03 through 2026-07, driven by a genuine semiconductor sector rally (`INTC`, `AMD`, `AVGO`) — confirmed by all four models independently converging on the same holdings, ruling out model-specific noise. However, with only 6 stocks per leg, single extreme movers (`INTC` alone returned +114% in one month) can dominate portfolio returns; this reflects V1's small universe size rather than unusually strong skill in this period specifically, and would be diluted in a larger production-scale universe.
 
 These findings are descriptive of this V1 experiment and should not be interpreted as evidence of a statistically significant or persistent trading strategy.
 
@@ -164,10 +164,12 @@ The characteristics are calculated using information available up to each observ
 
 For each month \(t\), characteristics are standardized across the available stocks:
 
+$$
 \[
 z_{i,t,k} =
 \frac{x_{i,t,k}-\mu_{t,k}}{\sigma_{t,k}}
 \]
+$$
 
 This puts stocks on a comparable cross-sectional scale while keeping the normalization within each time period.
 
@@ -175,11 +177,11 @@ This puts stocks on a comparable cross-sectional scale while keeping the normali
 
 The model predicts the following month's return:
 
-\[
+```math
 R_{i,t\rightarrow t+1}
 =
 \frac{P_{i,t+1}-P_{i,t}}{P_{i,t}}
-\]
+```
 
 The target is therefore shifted forward relative to the characteristics used to make the prediction.
 
@@ -259,19 +261,23 @@ The model predictions are converted into a cross-sectional long-short strategy e
 
 Transaction cost:
 
+$$
 \[
 Cost_t =
 0.0010
 \times
 (Turnover_{long,t}+Turnover_{short,t})
 \]
+$$
 
 Net portfolio return:
 
+$$
 \[
 NetReturn_t =
 GrossReturn_t-Cost_t
 \]
+$$
 
 This means the evaluation is based on investable portfolio returns rather than model predictions alone.
 
@@ -285,17 +291,21 @@ The final evaluation combines predictive metrics, portfolio performance, statist
 
 Monthly Spearman rank correlation between predicted and realized cross-sectional returns:
 
+$$
 \[
 IC_t =
 SpearmanRankCorr(\hat R_{i,t},R_{i,t})
 \]
+$$
 
 and:
 
+$$
 \[
 ICIR =
 \frac{\mu_{IC}}{\sigma_{IC}}
 \]
+$$
 
 ### Portfolio Metrics
 
@@ -385,6 +395,7 @@ That distinction is important in financial machine learning: good backtest perfo
 V1 deliberately makes several simplifications.
 
 - The initial universe contains 60 US stocks rather than the full US equity market.
+- With only 6 stocks per leg (a consequence of the 60-stock universe), individual extreme stock moves can disproportionately influence monthly portfolio returns, as observed during the March-April 2026 semiconductor rally. A larger universe would reduce this concentration effect.
 - The characteristic set is price/volume based rather than the full set of characteristics used in the original GKX study.
 - The evaluation window contains only 35 out-of-sample months.
 - Free public market data can introduce coverage and historical-data limitations.
